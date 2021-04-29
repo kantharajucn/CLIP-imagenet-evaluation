@@ -1,16 +1,16 @@
-import os
 import json
-import torchvision.datasets as datasets
-import torch
+import os
 
 import torch
 from torchvision import datasets
+
 
 class ImageNetCategory():
     """
         For ImageNet-like directory structures without sessions/conditions:
         .../{category}/{img_name}
     """
+
     def __init__(self):
         pass
 
@@ -19,10 +19,12 @@ class ImageNetCategory():
         category = full_path.split("/")[-2]
         return category
 
+
 class ImageNetDataset(datasets.ImageFolder):
     """Custom dataset that includes image file paths. Extends
     torchvision.datasets.ImageFolder
     """
+
     def __init__(self, *args, **kwargs):
         super(ImageNetDataset, self).__init__(*args, **kwargs)
 
@@ -46,26 +48,32 @@ class ImageNetClipDataset(datasets.ImageFolder):
     Adapted from:
     https://gist.github.com/andrewjong/6b02ff237533b3b2c554701fb53d5c4d
     """
+    SOFT_LABELS = "soft_labels"
+    HARD_LABELS = "hard_labels"
 
-    def __init__(self, *args, **kwargs):
-
-        self.clip_class_mapping = self._load_clip_mappings()
+    def __init__(self, label_type, *args, **kwargs):
+        self.clip_class_mapping = self._load_clip_mappings(label_type)
         super(ImageNetClipDataset, self).__init__(*args, **kwargs)
 
-    def _load_clip_mappings(self):
+    def _load_clip_mappings(self, label_type):
         mappings = {}
         cur_dir = os.path.dirname(os.path.realpath(__file__))
-        with open(os.path.join(cur_dir, "clip_hard_labels.json")) as f:
+        if label_type == ImageNetClipDataset.SOFT_LABELS:
+            file_name = os.path.join(cur_dir, "clip_hard_labels.json")
+        elif label_type == ImageNetClipDataset.HARD_LABELS:
+            file_name = os.path.join(cur_dir, "clip_soft_labels.json")
+        else:
+            raise ValueError("Invalid label type")
+        with open(file_name) as f:
             for line in f:
                 mappings.update(json.loads(line[:-2]))
         return mappings
 
     def _get_new_template(self, image_path):
-            file_name = os.path.basename(image_path)
-            target_class = self.clip_class_mapping[file_name]
-            target_index = self.class_to_idx[target_class]
-            return target_index
-
+        file_name = os.path.basename(image_path)
+        target_class = self.clip_class_mapping[file_name]
+        target_index = self.class_to_idx[target_class]
+        return target_index
 
     def __getitem__(self, index):
         """override the __getitem__ method. This is the method that dataloader calls."""
@@ -78,6 +86,7 @@ class ImageNetClipDataset(datasets.ImageFolder):
         original_tuple = (sample, new_target,)
         return original_tuple
 
+
 def data_loader(transform, args):
     imagenet_data = ImageNetDataset(args.data_dir, transform)
     data_loader = torch.utils.data.DataLoader(
@@ -87,7 +96,3 @@ def data_loader(transform, args):
         num_workers=args.num_workers
     )
     return data_loader
-
-
-
-
