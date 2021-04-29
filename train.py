@@ -221,8 +221,8 @@ def main_worker(gpu, ngpus_per_node, args):
             normalize,
         ])
 
-    train_dataset = ImageNetClipDataset(traindir, transformation)
-    val_dataset = ImageNetClipDataset(valdir, transformation)
+    train_dataset = ImageNetClipDataset(args.label_type, traindir, transformation)
+    val_dataset = ImageNetClipDataset(args.label_type, valdir, transformation)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -234,12 +234,7 @@ def main_worker(gpu, ngpus_per_node, args):
         num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
+        val_dataset,
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
 
