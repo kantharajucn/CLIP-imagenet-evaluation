@@ -50,7 +50,7 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description='CLIP inference')
     args.add_argument('-d', '--data-dir', default=None, type=str,
                       help='dataset path (default: None)')
-    args.add_argument('-w', '--num-workers', default=12, type=int,
+    args.add_argument('-w', '--num-workers', default=20, type=int,
                       help='number of workers (default: 64)')
     args.add_argument('-b', '--batch_size', default=2048, type=int,
                       help='Batch size (default: 64)')

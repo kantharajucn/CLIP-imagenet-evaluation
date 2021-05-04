@@ -9,6 +9,9 @@ import random
 import shutil
 import time
 import warnings
+import json
+import numpy as np
+import sys
 
 import torch
 import torch.nn as nn
@@ -76,7 +79,7 @@ parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
-parser.add_argument('--label-type', default="soft_labels", type=str,
+parser.add_argument('--label-type', default="hard_labels", type=str,
                     help='Label type')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
                     help='Use multi-processing distributed training to launch '
@@ -108,7 +111,22 @@ def main():
         args.world_size = int(os.environ["WORLD_SIZE"])
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-
+    
+    mappings = {}
+    print("In the main function")
+    print(args)
+    if args.label_type == "soft_labels":
+        print("loading labels into dict")
+        cur_dir = os.path.dirname(os.path.realpath(__file__))
+        file_name = os.path.join(cur_dir, "clip_soft_labels.json")
+        with open(file_name) as f:
+            for line in f:
+                temp_tuple = list(json.loads(line[:-2]).items())[0]
+                mappings[temp_tuple[0]] = np.array(temp_tuple[1], dtype=np.float32)   
+        print("loading labels into dict is done")
+    print("size of the dict is") 
+    print(sys.getsizeof(mappings))
+	
     ngpus_per_node = torch.cuda.device_count()
     if args.multiprocessing_distributed:
         # Since we have ngpus_per_node processes per node, the total world_size
@@ -116,13 +134,13 @@ def main():
         args.world_size = ngpus_per_node * args.world_size
         # Use torch.multiprocessing.spawn to launch distributed processes: the
         # main_worker process function
-        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
+        mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args, mappings))
     else:
         # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        main_worker(args.gpu, ngpus_per_node, args, mappings)
 
 
-def main_worker(gpu, ngpus_per_node, args):
+def main_worker(gpu, ngpus_per_node, args, mappings):
     global best_acc1
     args.gpu = gpu
 
@@ -178,8 +196,12 @@ def main_worker(gpu, ngpus_per_node, args):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
-
+    if args.label_type == "soft_labels":
+        criterion  = nn.MSELoss().cuda(args.gpu)   
+	
+    else:
+        criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -221,8 +243,8 @@ def main_worker(gpu, ngpus_per_node, args):
             normalize,
         ])
 
-    train_dataset = ImageNetClipDataset(args.label_type, traindir, transformation)
-    val_dataset = ImageNetClipDataset(args.label_type, valdir, transformation)
+    train_dataset = ImageNetClipDataset(args.label_type, mappings, traindir, transformation)
+    val_dataset = ImageNetClipDataset(args.label_type, mappings, valdir, transformation)
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
