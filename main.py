@@ -1,23 +1,26 @@
-import clip 
 import argparse
+
+import clip
 import torch
-import torch.nn as nn
 from tqdm import tqdm
-from data_loader import data_loader
+
 from classes import imagenet_classes
-from templates import imagenet_templates
+from data_loader import data_loader
 from save_predictions import save_to_file
+from templates import imagenet_templates
+
 
 def device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def zeroshot_classifier(model, classnames, templates):
     with torch.no_grad():
         zeroshot_weights = []
         for classname in tqdm(classnames):
-            texts = [template.format(classname) for template in templates] #format with class
-            texts = clip.tokenize(texts).cuda() #tokenize
-            class_embeddings = model.encode_text(texts) #embed with text encoder
+            texts = [template.format(classname) for template in templates]  # format with class
+            texts = clip.tokenize(texts).cuda()  # tokenize
+            class_embeddings = model.encode_text(texts)  # embed with text encoder
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
             class_embedding = class_embeddings.mean(dim=0)
             class_embedding /= class_embedding.norm()
@@ -36,14 +39,13 @@ def main(args):
     with torch.no_grad():
         for i, (images, targets, paths) in enumerate(tqdm(loader)):
             images = images.to(device())
-            
+
             # predict
             image_features = model.encode_image(images)
             image_features /= image_features.norm(dim=-1, keepdim=True)
             logits = 100. * image_features @ zeroshot_weights
             logits = softmax(logits)
             save_to_file(logits, targets, paths)
-
 
 
 if __name__ == "__main__":

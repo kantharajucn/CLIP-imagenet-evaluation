@@ -56,7 +56,7 @@ class ImageNetClipDataset(datasets.ImageFolder):
         if len(mappings) > 1:
             self.clip_class_mapping = mappings
         else:
-            self.clip_class_mapping = self._load_clip_mappings(label_type)
+            self.clip_class_mapping = self._load_clip_mappings()
         super(ImageNetClipDataset, self).__init__(*args, **kwargs)
 
     def _load_clip_mappings(self):
@@ -77,7 +77,7 @@ class ImageNetClipDataset(datasets.ImageFolder):
             raise ValueError("Invalid label type")
         return mappings
 
-    def _get_new_templatei_hard_labels(self, image_path):
+    def _get_new_template_hard_labels(self, image_path):
         file_name = os.path.basename(image_path)
         target_class = self.clip_class_mapping[file_name]
         target_index = self.class_to_idx[target_class]
@@ -87,7 +87,7 @@ class ImageNetClipDataset(datasets.ImageFolder):
         file_name = os.path.basename(image_path)
         target_class = self.clip_class_mapping[file_name]
         return target_class
-    
+
     def __getitem__(self, index):
         """override the __getitem__ method. This is the method that dataloader calls."""
         # this is what ImageFolder normally returns
@@ -98,7 +98,9 @@ class ImageNetClipDataset(datasets.ImageFolder):
         if self.label_type == ImageNetClipDataset.HARD_LABELS:
             new_target = self._get_new_template_hard_labels(path)
         elif self.label_type == ImageNetClipDataset.SOFT_LABELS:
-    	    new_target = self._get_new_template_soft_labels(path)
+            new_target = self._get_new_template_soft_labels(path)
+        else:
+            raise ValueError("Invalid label type")
         original_tuple = (sample, new_target,)
         return original_tuple
 
