@@ -89,8 +89,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 
 best_acc1 = 0
 
-
 def main():
+    global mappings
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -111,8 +111,9 @@ def main():
         args.world_size = int(os.environ["WORLD_SIZE"])
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-    
-    mappings = {}
+   
+    manager = mp.Manager() 
+    mappings = manager.dict()
     print("In the main function")
     print(args)
     if args.label_type == "soft_labels":
@@ -124,6 +125,7 @@ def main():
                 temp_tuple = list(json.loads(line[:-2]).items())[0]
                 mappings[temp_tuple[0]] = np.array(temp_tuple[1], dtype=np.float32)   
         print("loading labels into dict is done")
+    
     print("size of the dict is") 
     print(sys.getsizeof(mappings))
 	
@@ -138,6 +140,17 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args, mappings)
+
+
+
+class CrossEntropy(nn.Module):
+    def __init__(self):
+        super(CrossEntropy, self).__init__()
+ 
+    def forward(self, pred, targets):        
+        
+        logsoftmax = nn.LogSoftmax()
+        return torch.mean(torch.sum(- targets * logsoftmax(pred), 1))
 
 
 def main_worker(gpu, ngpus_per_node, args, mappings):
@@ -196,11 +209,8 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
-    if args.label_type == "soft_labels":
-        criterion  = nn.MSELoss().cuda(args.gpu)   
 	
-    else:
-        criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    criterion = CrossEntropy().cuda(args.gpu)
     
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -316,10 +326,13 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # compute output
         output = model(images)
+        softmax_op = torch.nn.Softmax(dim=1)
+        softmax_output = softmax_op(output)
         loss = criterion(output, target)
 
+
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = accuracy(softmax_output, target, topk=(1, 5))
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
         top5.update(acc5[0], images.size(0))
@@ -360,10 +373,12 @@ def validate(val_loader, model, criterion, args):
 
             # compute output
             output = model(images)
+            softmax_op = torch.nn.Softmax(dim=1)
+            softmax_output = softmax_op(output)
             loss = criterion(output, target)
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            acc1, acc5 = accuracy(softmax_output, target, topk=(1, 5))
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0], images.size(0))
             top5.update(acc5[0], images.size(0))
@@ -444,7 +459,8 @@ def accuracy(output, target, topk=(1,)):
 
         _, pred = output.topk(maxk, 1, True, True)
         pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
+        _, target_index = target.topk(1, 1, True, True)
+        correct = pred.eq(target_index.view(1, -1).expand_as(pred))
 
         res = []
         for k in topk:
