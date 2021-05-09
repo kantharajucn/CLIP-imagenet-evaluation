@@ -2,36 +2,34 @@
 Code is copied and adapted from https://github.com/pytorch/examples/tree/master/imagenet
 """
 
-
 import argparse
+import json
 import os
 import random
 import shutil
+import sys
 import time
 import warnings
-import json
-import numpy as np
-import sys
 
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
-import torch.optim
 import torch.multiprocessing as mp
+import torch.nn.parallel
+import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 import torchvision.models as models
-
+import torchvision.transforms as transforms
 
 from data_loader import ImageNetClipDataset
+from loss_function import CustomCrossEntropyLoss
 
 model_names = sorted(name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and callable(models.__dict__[name]))
+                     if name.islower() and not name.startswith("__")
+                     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('data', metavar='DIR',
@@ -39,8 +37,8 @@ parser.add_argument('data', metavar='DIR',
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
-                        ' | '.join(model_names) +
-                        ' (default: resnet18)')
+                         ' | '.join(model_names) +
+                         ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--epochs', default=90, type=int, metavar='N',
@@ -89,6 +87,7 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
 
 best_acc1 = 0
 
+
 def main():
     global mappings
     args = parser.parse_args()
@@ -111,8 +110,8 @@ def main():
         args.world_size = int(os.environ["WORLD_SIZE"])
 
     args.distributed = args.world_size > 1 or args.multiprocessing_distributed
-   
-    manager = mp.Manager() 
+
+    manager = mp.Manager()
     mappings = manager.dict()
     print("In the main function")
     print(args)
@@ -123,12 +122,12 @@ def main():
         with open(file_name) as f:
             for line in f:
                 temp_tuple = list(json.loads(line[:-2]).items())[0]
-                mappings[temp_tuple[0]] = np.array(temp_tuple[1], dtype=np.float32)   
+                mappings[temp_tuple[0]] = np.array(temp_tuple[1], dtype=np.float32)
         print("loading labels into dict is done")
-    
-    print("size of the dict is") 
+
+    print("size of the dict is")
     print(sys.getsizeof(mappings))
-	
+
     ngpus_per_node = torch.cuda.device_count()
     if args.multiprocessing_distributed:
         # Since we have ngpus_per_node processes per node, the total world_size
@@ -140,17 +139,6 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args, mappings)
-
-
-
-class CrossEntropy(nn.Module):
-    def __init__(self):
-        super(CrossEntropy, self).__init__()
- 
-    def forward(self, pred, targets):        
-        
-        logsoftmax = nn.LogSoftmax()
-        return torch.mean(torch.sum(- targets * logsoftmax(pred), 1))
 
 
 def main_worker(gpu, ngpus_per_node, args, mappings):
@@ -209,9 +197,12 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
             model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
-	
-    criterion = CrossEntropy().cuda(args.gpu)
-    
+
+    if args.label_type == "hard_label":
+        criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    elif args.label_type == "soft_labels":
+        criterion = CustomCrossEntropyLoss().cuda(args.gpu)
+
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
@@ -247,11 +238,11 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
                                      std=[0.229, 0.224, 0.225])
 
     transformation = transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ])
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
 
     train_dataset = ImageNetClipDataset(args.label_type, mappings, traindir, transformation)
     val_dataset = ImageNetClipDataset(args.label_type, mappings, valdir, transformation)
@@ -290,13 +281,13 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
         best_acc1 = max(acc1, best_acc1)
 
         if not args.multiprocessing_distributed or (args.multiprocessing_distributed
-                and args.rank % ngpus_per_node == 0):
+                                                    and args.rank % ngpus_per_node == 0):
             save_checkpoint({
                 'epoch': epoch + 1,
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'best_acc1': best_acc1,
-                'optimizer' : optimizer.state_dict(),
+                'optimizer': optimizer.state_dict(),
             }, is_best)
 
 
@@ -329,7 +320,6 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         softmax_op = torch.nn.Softmax(dim=1)
         softmax_output = softmax_op(output)
         loss = criterion(output, target)
-
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(softmax_output, target, topk=(1, 5))
@@ -405,6 +395,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f'):
         self.name = name
         self.fmt = fmt
