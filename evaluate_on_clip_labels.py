@@ -147,14 +147,15 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
         model = models.__dict__[args.arch](pretrained=True)
     else:
         print("=> creating model '{}'".format(args.arch))
-        model = models.__dict__[args.arch]()
+        model = models.__dict__[args.arch](pretrained=False)
         if args.gpu is None:
             checkpoint = torch.load(args.checkpoint)
         else:
             # Map model to be loaded to specified single gpu.
-            loc = 'cuda:{}'.format(args.gpu)
-            checkpoint = torch.load(args.checkpoint, map_location=loc)
-            model.load_state_dict(checkpoint["state-dict"])
+            #loc = 'cuda:{}'.format(args.gpu)
+            #checkpoint = torch.load(args.checkpoint, map_location=loc)
+            checkpoint = torch.load(args.checkpoint)
+            model.load_state_dict(checkpoint["state_dict"])
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
