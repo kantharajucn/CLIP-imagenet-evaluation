@@ -53,29 +53,8 @@ class ImageNetClipDataset(datasets.ImageFolder):
 
     def __init__(self, label_type, mappings, *args, **kwargs):
         self.label_type = label_type
-        if len(mappings) > 1:
-            self.clip_class_mapping = mappings
-        else:
-            self.clip_class_mapping = self._load_clip_mappings()
+        self.clip_class_mapping = mappings
         super(ImageNetClipDataset, self).__init__(*args, **kwargs)
-
-    def _load_clip_mappings(self):
-        mappings = {}
-        cur_dir = os.path.dirname(os.path.realpath(__file__))
-        if self.label_type == ImageNetClipDataset.HARD_LABELS:
-            file_name = os.path.join(cur_dir, "clip_hard_labels.json")
-            with open(file_name) as f:
-                for line in f:
-                    mappings.update(json.loads(line[:-2]))
-        elif self.label_type == ImageNetClipDataset.SOFT_LABELS:
-            file_name = os.path.join(cur_dir, "clip_soft_labels.json")
-            with open(file_name) as f:
-                for line in f:
-                    temp_tuple = list(json.loads(line[:-2]).items())[0]
-                    mappings[temp_tuple[0]] = np.array(temp_tuple[1], dtype=np.float32)
-        else:
-            raise ValueError("Invalid label type")
-        return mappings
 
     def _get_new_template_hard_labels(self, image_path):
         file_name = os.path.basename(image_path)
