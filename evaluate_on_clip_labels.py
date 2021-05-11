@@ -148,14 +148,6 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
     else:
         print("=> creating model '{}'".format(args.arch))
         model = models.__dict__[args.arch](pretrained=False)
-        if args.gpu is None:
-            checkpoint = torch.load(args.checkpoint)
-        else:
-            # Map model to be loaded to specified single gpu.
-            #loc = 'cuda:{}'.format(args.gpu)
-            #checkpoint = torch.load(args.checkpoint, map_location=loc)
-            checkpoint = torch.load(args.checkpoint)
-            model.load_state_dict(checkpoint["state_dict"])
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
@@ -187,26 +179,24 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
             model.cuda()
         else:
             model = torch.nn.DataParallel(model).cuda()
-            if args.gpu is None:
-                checkpoint = torch.load(args.resume)
-            else:
-                # Map model to be loaded to specified single gpu.
-                loc = 'cuda:{}'.format(args.gpu)
-                checkpoint = torch.load(args.resume, map_location=loc)
-            model.load_state_dict(checkpoint["state_dict"])
-
+    print("Loading checkpoint")
+    if args.gpu is None:
+        checkpoint = torch.load(args.checkpoint)
+    else:
+        # Map model to be loaded to specified single gpu.
+        loc = 'cuda:{}'.format(args.gpu)
+        #checkpoint = torch.load(args.checkpoint, map_location=loc)
+        checkpoint = torch.load(args.checkpoint, map_location=loc)
+    model.load_state_dict(checkpoint["state_dict"])
     # define loss function (criterion) and optimizer
 
-    if args.label_type == "hard_label":
+    if args.label_type == "hard_labels":
         criterion = nn.CrossEntropyLoss().cuda(args.gpu)
     elif args.label_type == "soft_labels":
         criterion = CustomCrossEntropyLoss().cuda(args.gpu)
     else:
         raise ValueError("Invalid label type")
 
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum,
-                                weight_decay=args.weight_decay)
 
     cudnn.benchmark = True
 
@@ -269,9 +259,7 @@ def validate(val_loader, model, criterion, args):
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-
-            if i % args.print_freq == 0:
-                progress.display(i)
+            print(f"Acc@1 {top1.avg} Acc@5 {top5.avg}")
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
