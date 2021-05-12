@@ -20,6 +20,7 @@ import torch.multiprocessing as mp
 import torch.nn.parallel
 import torch.optim
 import torch.utils.data
+import torch.nn.functional as F
 import torch.utils.data.distributed
 import torchvision.models as models
 import torchvision.transforms as transforms
@@ -185,7 +186,7 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
     else:
         # Map model to be loaded to specified single gpu.
         loc = 'cuda:{}'.format(args.gpu)
-        #checkpoint = torch.load(args.checkpoint, map_location=loc)
+        # checkpoint = torch.load(args.checkpoint, map_location=loc)
         checkpoint = torch.load(args.checkpoint, map_location=loc)
     model.load_state_dict(checkpoint["state_dict"])
     # define loss function (criterion) and optimizer
@@ -196,7 +197,6 @@ def main_worker(gpu, ngpus_per_node, args, mappings):
         criterion = CustomCrossEntropyLoss().cuda(args.gpu)
     else:
         raise ValueError("Invalid label type")
-
 
     cudnn.benchmark = True
 
@@ -228,6 +228,7 @@ def validate(val_loader, model, criterion, args):
     losses = AverageMeter('Loss', ':.4e')
     top1 = AverageMeter('Acc@1', ':6.2f')
     top5 = AverageMeter('Acc@5', ':6.2f')
+    kl_div = KLDivergence()
     progress = ProgressMeter(
         len(val_loader),
         [batch_time, losses, top1, top5],
@@ -252,18 +253,22 @@ def validate(val_loader, model, criterion, args):
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(args.label_type, softmax_output, target, topk=(1, 5))
+            kl_diverge = kl_divergence(softmax_output, target)
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0], images.size(0))
             top5.update(acc5[0], images.size(0))
+            kl_div.update(kl_diverge)
 
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
             print(f"Acc@1 {top1.avg} Acc@5 {top5.avg}")
+            print(f"KLDivergence: {kl_div.avg:.3f}")
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
               .format(top1=top1, top5=top5))
+        print(f"Over all KLDivergence: {kl_div.avg:.3f}")
 
     return top1.avg
 
@@ -291,6 +296,28 @@ class AverageMeter(object):
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
+
+
+class KLDivergence:
+    """Computes and stores the average and current value of KL Divergence"""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val
+        self.count += n
+        self.avg = self.sum / self.count
+
+    def __str__(self):
+        return f"KLDiverge: {self.avg}"
 
 
 class ProgressMeter(object):
@@ -330,6 +357,10 @@ def accuracy(label_type, output, target, topk=(1,)):
             correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
+
+
+def kl_divergence(output, target):
+    return F.kl_div(target.log(), output, None, None, 'sum')
 
 
 if __name__ == '__main__':
