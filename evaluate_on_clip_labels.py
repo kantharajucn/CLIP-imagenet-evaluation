@@ -263,7 +263,7 @@ def validate(val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
             print(f"Acc@1 {top1.avg} Acc@5 {top5.avg}")
-            print(f"KLDivergence: {kl_div.avg:.3f}")
+            print(f"KLDivergence: {kl_diverge}")
 
         # TODO: this should also be done with the ProgressMeter
         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
@@ -360,7 +360,7 @@ def accuracy(label_type, output, target, topk=(1,)):
 
 
 def kl_divergence(output, target):
-    return F.kl_div(target.log(), output, None, None, 'sum')
+    return  F.kl_div(output.log(), target) 
 
 
 if __name__ == '__main__':
