@@ -1,6 +1,5 @@
-import json
 import os
-import numpy as np
+
 import torch
 from torchvision import datasets
 
@@ -79,7 +78,7 @@ class ImageNetClipDataset(datasets.ImageFolder):
         elif self.label_type == ImageNetClipDataset.SOFT_LABELS:
             new_target = self._get_new_template_soft_labels(path)
         else:
-            raise ValueError("Invalid label type")
+            new_target = target
         original_tuple = (sample, new_target,)
         return original_tuple
 

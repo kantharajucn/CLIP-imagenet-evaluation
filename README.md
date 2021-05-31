@@ -14,10 +14,10 @@ pip install -r requirements.txt
 ```
 
 
-## Running inference
+## Running CLIP inference on ImageNet
 
 ```
-python3 test.py --data-dir /path/to/dataset/dir --num-workers 25 --batch-size 40
+python3 clip_imagenet_inference.py --data-dir /path/to/dataset/dir --num-workers 25 --batch-size 40
 
 ```
 
@@ -30,13 +30,36 @@ You can train any model from torch model zoo on both `Soft Labels` and `Hard Lab
 To train using soft labels
 
 ```
-train.py /scratch_local/datasets/ImageNet2012 -a resnet50 --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type soft_labels
+train.py /path/to/imagenet -a resnet50 --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type soft_labels
 
 ```
 
 To train using hard labels
 
 ```
-train.py /scratch_local/datasets/ImageNet2012 -a resnet50 --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 16  --label-type hard_labels
+train.py /path/to/imagenet -a resnet50 --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 16  --label-type hard_labels
 
 ```
+
+
+## Evaluate model trained using CLIP hard and Soft Labels
+
+After training any `pytorch zoo model` using CLIP labels, you can evaluate the model on ImageNet with original ImageNet labels or CLIP labels using the below script.
+
+### Evaluate on ImageNet labels
+
+```
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --checkpoint ./hard_labels_checkpoint.pth.tar
+```
+
+
+### Evaluate on CLIP hard labels
+```
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type hard_labels --labels ./IN_val_clip_hard_labels.json --checkpoint ./hard_labels_checkpoint.pth.tar
+```
+
+### Evaluate on CLIP soft labels
+```
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type soft_labels --labels ./IN_val_clip_soft_labels.json --checkpoint ./soft_labels_checkpoint.pth.tar
+```
+
