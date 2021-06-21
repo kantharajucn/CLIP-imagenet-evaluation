@@ -15,4 +15,4 @@
 # Print info about current job
 scontrol show job $SLURM_JOB_ID
 
-singularity exec --nv --bind /scratch_local/ docker://lukasschott/ifr:v8 python3 evaluate_on_clip_labels.py /scratch_local/datasets/ImageNet2012 -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type hard_labels --labels ./IN_val_clip_hard_labels.json --checkpoint ./hard_labels_checkpoint.pth.tar 
+singularity exec --nv --bind /scratch_local/ docker://lukasschott/ifr:v8 python3 evaluate_on_clip_labels.py /scratch_local/datasets/ImageNet2012 -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type hard_labels --labels path/to/IN_val_clip_hard_labels.json --checkpoint path/to/hard_labels_checkpoint.pth.tar

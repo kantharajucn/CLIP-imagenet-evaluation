@@ -1,6 +1,6 @@
 # CLIP inference for ImageNet and train other models using soft and hard labels from CLIP
 
-This repo contains CLIP model inference for ImageNet dataset and using the resulting hard and soft labels to train any other models.
+This repo contains CLIP model inference for ImageNet dataset and using the resulting hard and soft labels one can train any other models using thse labels.
 
 ## Quick Start
 
@@ -23,9 +23,9 @@ python3 clip_imagenet_inference.py --data-dir /path/to/dataset/dir --num-workers
 
 Inference results will be stored into files `soft_labels.json` and `hard_labels.json` in the current directory. 
 
-## Running training
+## Run model training using CLIP hard and soft labels
 
-You can train any model from torch model zoo on both `Soft Labels` and `Hard Labels`
+You can train any model from torch model zoo on both `Soft Labels` and `Hard Labels`. After the successful training of the model, checkpoints will be stored in `checkpoints` directory.
 
 To train using soft labels
 
@@ -49,17 +49,21 @@ After training any `pytorch zoo model` using CLIP labels, you can evaluate the m
 ### Evaluate on ImageNet labels
 
 ```
-test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --checkpoint ./hard_labels_checkpoint.pth.tar
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --checkpoint path/to/hard_labels_checkpoint.pth
 ```
 
 
 ### Evaluate on CLIP hard labels
 ```
-test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type hard_labels --labels ./IN_val_clip_hard_labels.json --checkpoint ./hard_labels_checkpoint.pth.tar
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type hard_labels --labels path/to/CLIP/IN_val_clip_hard_labels.json --checkpoint path/to/hard_labels_checkpoint.pth.tar
 ```
 
 ### Evaluate on CLIP soft labels
 ```
-test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type soft_labels --labels ./IN_val_clip_soft_labels.json --checkpoint ./soft_labels_checkpoint.pth.tar
+test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:1405' --dist-backend 'nccl' --multiprocessing-distributed --world-size 1 --rank 0 --workers 8  --label-type soft_labels --labels path/to/IN_val_clip_soft_labels.json --checkpoint path/to/soft_labels_checkpoint.pth.tar
 ```
 
+
+## Running training and evaluation on Slurm
+
+Use the scripts `rain.sh` and `test.sh` to run training and testing the models on SLURM cluster.
