@@ -67,3 +67,7 @@ test.py /path/to/imagenet -a resnet50 --evaluate --dist-url 'tcp://127.0.0.1:140
 ## Running training and evaluation on Slurm
 
 Use the scripts `rain.sh` and `test.sh` to run training and testing the models on SLURM cluster.
+
+## License
+
+1. CLIP model is taken from https://github.com/openai/CLIP, please adhere to the license of this repository.
